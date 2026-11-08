@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false
 """Reproduce the notebook's data cleaning, model selection and held-out evaluation."""
 import json
 from pathlib import Path
@@ -18,14 +19,86 @@ def make_pipeline(classifier):
  return Pipeline([('tfidf',TfidfVectorizer(lowercase=True,stop_words='english',max_features=10000,ngram_range=(1,2),min_df=2)),('classifier',classifier)])
 def main():
  print('Loading public dataset (first run requires internet)...',flush=True)
- raw=load_dataset('Tobi-Bueck/customer-support-tickets')['train'].to_pandas()
- english=raw[raw['language']=='en'].copy()
- english['ticket_text']=(english['subject'].fillna('').astype(str).str.strip()+' '+english['body'].fillna('').astype(str).str.strip()).str.strip()
- selected=english[english['queue'].isin(LABELS) & (english['ticket_text'].str.len()>0)].copy()
- counts=selected.groupby('ticket_text')['queue'].nunique()
- conflicts=set(counts[counts>1].index)
- df=selected[~selected['ticket_text'].isin(conflicts)].drop_duplicates(subset=['ticket_text']).reset_index(drop=True)
- X_train,X_test,y_train,y_test=train_test_split(df['ticket_text'],df['queue'],test_size=.20,random_state=2026,stratify=df['queue'])
+
+ raw = load_dataset(
+  'Tobi-Bueck/customer-support-tickets'
+ )['train'].to_pandas()
+
+ # Stage 1: Keep English-language tickets
+ english = raw[raw['language'] == 'en'].copy()
+
+ # Stage 2: Combine subject and body
+ english['ticket_text'] = (
+         english['subject'].fillna('').astype(str).str.strip()
+         + ' '
+         + english['body'].fillna('').astype(str).str.strip()
+ ).str.strip()
+
+ # Stage 3: Keep the four supported queues
+ queue_filtered = english[english['queue'].isin(LABELS)].copy()
+
+ # Stage 4: Remove empty ticket texts
+ selected = queue_filtered[
+  queue_filtered['ticket_text'].str.len() > 0
+  ].copy()
+
+ # Stage 5: Identify texts with conflicting queue labels
+ counts = selected.groupby('ticket_text')['queue'].nunique()
+ conflicts = set(counts[counts > 1].index)
+
+ without_conflicts = selected[
+  ~selected['ticket_text'].isin(conflicts)
+ ].copy()
+
+ # Stage 6: Remove duplicate ticket texts
+ df = without_conflicts.drop_duplicates(
+  subset=['ticket_text']
+ ).reset_index(drop=True)
+
+ # Capture the cleaning audit
+ dataset_audit = {
+  'raw_rows': int(len(raw)),
+  'english_rows': int(len(english)),
+  'queue_filtered_rows': int(len(queue_filtered)),
+  'empty_text_removed': int(
+   len(queue_filtered) - len(selected)
+  ),
+  'conflicting_rows_removed': int(
+   len(selected) - len(without_conflicts)
+  ),
+  'duplicate_rows_removed': int(
+   len(without_conflicts) - len(df)
+  ),
+  'cleaned_rows': int(len(df)),
+  'class_distribution': {
+   label: int((df['queue'] == label).sum())
+   for label in LABELS
+  }
+ }
+
+ # Preserve the original notebook's stratified split
+ X_train, X_test, y_train, y_test = train_test_split(
+  df['ticket_text'],
+  df['queue'],
+  test_size=0.20,
+  random_state=2026,
+  stratify=df['queue']
+ )
+
+ dataset_audit['train_rows'] = int(len(X_train))
+ dataset_audit['test_rows'] = int(len(X_test))
+ dataset_audit['train_distribution'] = {
+  label: int((y_train == label).sum())
+  for label in LABELS
+ }
+ dataset_audit['test_distribution'] = {
+  label: int((y_test == label).sum())
+  for label in LABELS
+ }
+
+ print('Dataset audit:')
+ print(json.dumps(dataset_audit, indent=2))
+
  models={'Dummy Baseline':make_pipeline(DummyClassifier(strategy='most_frequent')),'Naive Bayes':make_pipeline(MultinomialNB()),'Logistic Regression':make_pipeline(LogisticRegression(max_iter=1000,random_state=42)),'Linear SVM':make_pipeline(LinearSVC(random_state=42))}
  cv=StratifiedKFold(n_splits=5,shuffle=True,random_state=42)
  rows=[]
@@ -41,7 +114,22 @@ def main():
  print('Training selected model:',winner,flush=True)
  model.fit(X_train,y_train);pred=model.predict(X_test)
  errors=[{'ticket_text':str(text)[:1200],'true_queue':str(actual),'predicted_queue':str(guess)} for text,actual,guess in zip(X_test,y_test,pred) if actual!=guess]
- data={'selected_model':winner,'dataset':'Tobi-Bueck/customer-support-tickets','dataset_rows':int(len(df)),'train_rows':int(len(X_train)),'test_rows':int(len(X_test)),'labels':LABELS,'cv_results':rows,'test_metrics':{'accuracy':float(accuracy_score(y_test,pred)),'macro_precision':float(precision_score(y_test,pred,average='macro',zero_division=0)),'macro_recall':float(recall_score(y_test,pred,average='macro',zero_division=0)),'macro_f1':float(f1_score(y_test,pred,average='macro',zero_division=0)),'weighted_f1':float(f1_score(y_test,pred,average='weighted',zero_division=0))},'per_class':classification_report(y_test,pred,labels=LABELS,output_dict=True,zero_division=0),'confusion_matrix':confusion_matrix(y_test,pred,labels=LABELS).tolist(),'errors':errors}
+
+ data={
+  'selected_model':winner,
+  'dataset':'Tobi-Bueck/customer-support-tickets',
+  'dataset_audit': dataset_audit,
+  'dataset_rows':int(len(df)),
+  'train_rows':int(len(X_train)),
+  'test_rows':int(len(X_test)),
+  'labels':LABELS,'cv_results':rows,
+  'test_metrics':{'accuracy':float(accuracy_score(y_test,pred)),
+                  'macro_precision':float(precision_score(y_test,pred,average='macro',zero_division=0)),
+                  'macro_recall':float(recall_score(y_test,pred,average='macro',zero_division=0)),
+                  'macro_f1':float(f1_score(y_test,pred,average='macro',zero_division=0)),
+                  'weighted_f1':float(f1_score(y_test,pred,average='weighted',zero_division=0))
+                  },
+  'per_class':classification_report(y_test,pred,labels=LABELS,output_dict=True,zero_division=0),'confusion_matrix':confusion_matrix(y_test,pred,labels=LABELS).tolist(),'errors':errors}
  OUT.mkdir(parents=True,exist_ok=True)
  joblib.dump(model,OUT/'model.joblib')
  (OUT/'metrics.json').write_text(json.dumps(data,indent=2))
