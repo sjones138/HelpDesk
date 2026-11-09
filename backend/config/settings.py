@@ -57,4 +57,4 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 STATIC_URL='static/'
 REST_FRAMEWORK={'DEFAULT_THROTTLE_CLASSES':['rest_framework.throttling.AnonRateThrottle','rest_framework.throttling.UserRateThrottle'],'DEFAULT_THROTTLE_RATES':{'anon':'60/hour','user':'300/hour'}}
 
-#postgresql://helpdesk_user:SuQ5beDAH0UT0FbQFO1eBX81bmrqKM4Q@dpg-dbovv4utlv9c738tpgv0-a/helpdesk_mvge
+
