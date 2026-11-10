@@ -2,17 +2,21 @@ import json
 from functools import lru_cache
 from pathlib import Path
 import joblib
+
 ARTIFACTS=Path(__file__).resolve().parent.parent/'artifacts'
+
 @lru_cache(maxsize=1)
 def get_model():
  path=ARTIFACTS/'model.joblib'
  if not path.exists(): raise FileNotFoundError('Model missing: run python -m ml.train_export from backend/')
  return joblib.load(path) # only load trusted, locally generated artifacts
+
 @lru_cache(maxsize=1)
 def get_metrics():
  path=ARTIFACTS/'metrics.json'
  if not path.exists(): raise FileNotFoundError('Metrics missing: run python -m ml.train_export from backend/')
  return json.loads(path.read_text())
+
 def predict(text):
  model=get_model()
  label=str(model.predict([text])[0]); result={'queue':label,'contributions':[]}

@@ -99,20 +99,19 @@ const clearFilters = () => {
     <section class="eval-panel">
       <div class="eval-heading">
         <div>
-          <h2><span>03 /</span> Held-Out Test Performance</h2>
+          <h2><span>01 /</span> Model Comparison</h2>
           <p>
-            Evaluated on {{ metrics.test_rows.toLocaleString() }}
-            previously held-out tickets.
+            Five-fold stratified cross-validation on the training split only.
+            Select a metric to compare the candidate models.
           </p>
         </div>
 
         <label class="eval-control">
-          SELECT MODEL
-          <select v-model="selectedModel">
-            <option value="original">Original Linear SVM</option>
-            <option value="tuned" :disabled="!metrics.tuned_svm">
-              Tuned Linear SVM
-            </option>
+          RANK BY
+          <select v-model="metric">
+            <option value="macro_f1">Macro-F1</option>
+            <option value="accuracy">Accuracy</option>
+            <option value="weighted_f1">Weighted-F1</option>
           </select>
         </label>
       </div>
@@ -173,11 +172,25 @@ const clearFilters = () => {
       </div>
     </section>
     <section class="eval-panel">
-      <h2><span>03 /</span> Held-Out Test Performance</h2>
-      <p>
-        Evaluated after model selection, on
-        {{ metrics.test_rows.toLocaleString() }} previously held-out tickets.
-      </p>
+      <div class="eval-heading">
+        <div>
+          <h2><span>03 /</span> Held-Out Test Performance</h2>
+          <p>
+            Evaluated on {{ metrics.test_rows.toLocaleString() }}
+            previously held-out tickets.
+          </p>
+        </div>
+
+        <label class="eval-control">
+          SELECT MODEL
+          <select v-model="selectedModel">
+            <option value="original">Original Linear SVM</option>
+            <option value="tuned" :disabled="!metrics.tuned_svm">
+              Tuned Linear SVM
+            </option>
+          </select>
+        </label>
+      </div>
       <div class="eval-stats">
         <div>
           <small>ACCURACY</small>
@@ -382,7 +395,7 @@ const clearFilters = () => {
     <section class="eval-panel">
       <div class="eval-heading">
         <div>
-          <h2><span>00 /</span> Evaluation Model</h2>
+          <h2><span>01 /</span> Evaluation Model</h2>
           <p>
             Select which trained model's held-out confusion matrix you want to
             examine.
@@ -403,7 +416,7 @@ const clearFilters = () => {
     <section class="eval-panel">
       <div class="eval-heading">
         <div>
-          <h2><span>01 /</span> Confusion Matrix</h2>
+          <h2><span>02 /</span> Confusion Matrix</h2>
           <p>
             Held-out test set · rows are actual queues, columns are predicted queues.
             Currently showing the
@@ -457,7 +470,7 @@ const clearFilters = () => {
       </p>
     </section>
     <section class="eval-panel">
-      <h2><span>02 /</span> Misclassified Ticket Explorer</h2>
+      <h2><span>03 /</span> Misclassified Ticket Explorer</h2>
       <p>
         Showing {{ visible.length.toLocaleString() }} of
         {{ filtered.length.toLocaleString() }} matching errors, from
