@@ -303,8 +303,55 @@ const clearFilters = () => {
         across the four support queues.
       </p>
     </section>
+    <section v-if="metrics.tuned_svm" class="eval-panel">
+      <h2><span>05 /</span> Hyperparameter Optimization</h2>
+
+      <p>
+        GridSearchCV evaluated 32 hyperparameter combinations using
+        five-fold stratified cross-validation on the training data.
+        The configuration below achieved the highest mean validation Macro-F1.
+      </p>
+
+      <div class="eval-method">
+        <div>
+          <small>REGULARIZATION (C)</small>
+          <strong>{{ metrics.tuned_svm.best_params.classifier__C }}</strong>
+        </div>
+
+        <div>
+          <small>CLASS WEIGHT</small>
+          <strong>
+            {{ metrics.tuned_svm.best_params.classifier__class_weight ?? 'None' }}
+          </strong>
+        </div>
+
+        <div>
+          <small>N-GRAM RANGE</small>
+          <strong>
+            {{ metrics.tuned_svm.best_params.tfidf__ngram_range.join('–') }}
+          </strong>
+        </div>
+
+        <div>
+          <small>MINIMUM DOCUMENT FREQUENCY</small>
+          <strong>{{ metrics.tuned_svm.best_params.tfidf__min_df }}</strong>
+        </div>
+
+        <div>
+          <small>BEST CROSS-VALIDATION MACRO-F1</small>
+          <strong>{{ metrics.tuned_svm.best_cv_macro_f1.toFixed(4) }}</strong>
+        </div>
+      </div>
+
+      <p class="eval-note">
+        Hyperparameters were selected using training-set cross-validation.
+        Final performance was evaluated separately on the held-out test set.
+        The best grid-search score is a model-selection score, not an
+        independent estimate of generalization performance.
+      </p>
+    </section>
     <section class="eval-panel">
-      <h2><span>05 /</span> Experimental Setup</h2>
+      <h2><span>06 /</span> Experimental Setup</h2>
       <p>
         TF-IDF features are fitted inside each cross-validation fold to avoid
         training/validation leakage.
