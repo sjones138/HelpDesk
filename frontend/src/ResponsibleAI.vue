@@ -1,26 +1,363 @@
 <script setup lang="ts">
-import {computed} from 'vue';
-import type {Metrics} from './api';
-const props=defineProps<{metrics:Metrics}>();
-const pct=(n:number)=>`${(n*100).toFixed(1)}%`;
-const rows=computed(()=>props.metrics.labels.map(label=>({label, ...props.metrics.per_class[label]})).filter(r=>typeof r.recall==='number'));
-const weakest=computed(()=>[...rows.value].sort((a,b)=>a.recall-b.recall)[0]);
-const strongest=computed(()=>[...rows.value].sort((a,b)=>b.recall-a.recall)[0]);
+import { computed } from 'vue';
+import type { Metrics } from './api';
+const props = defineProps<{ metrics: Metrics }>();
+const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
+const rows = computed(() =>
+  props.metrics.labels
+    .map((label) => ({ label, ...props.metrics.per_class[label] }))
+    .filter((r) => typeof r.recall === 'number'),
+);
+const weakest = computed(
+  () => [...rows.value].sort((a, b) => a.recall - b.recall)[0],
+);
+const strongest = computed(
+  () => [...rows.value].sort((a, b) => b.recall - a.recall)[0],
+);
 </script>
 <template>
   <div class="responsible-ai">
-    <div class="ra-banner"><div class="ra-kicker">// DEPLOYMENT ASSESSMENT</div><h2>Decision support, not autonomous routing</h2><p>HelpDesk proposes a support queue for human review. A predicted label is not proof that a ticket belongs in that queue, and the classifier should not automatically dispatch sensitive or urgent tickets.</p><div class="ra-banner-meta"><span>MODEL: {{metrics.selected_model}}</span><span>HELD-OUT ACCURACY: {{pct(metrics.test_metrics.accuracy)}}</span><span>MACRO-F1: {{metrics.test_metrics.macro_f1.toFixed(3)}}</span></div></div>
-    <div class="ra-grid">
-      <section class="ra-panel"><div class="ra-index">01 / MODEL CARD</div><h3>Scope and methodology</h3><dl><div><dt>Dataset</dt><dd>{{metrics.dataset}}</dd></div><div><dt>Cleaned examples</dt><dd>{{metrics.dataset_rows.toLocaleString()}}</dd></div><div><dt>Training / test</dt><dd>{{metrics.train_rows.toLocaleString()}} / {{metrics.test_rows.toLocaleString()}}</dd></div><div><dt>Input</dt><dd>Combined ticket subject and body</dd></div><div><dt>Output</dt><dd>One of four support queues</dd></div><div><dt>Text features</dt><dd>TF-IDF; English stop words; 1–2 grams; up to 10,000 features; min_df=2</dd></div><div><dt>Selection</dt><dd>Five-fold stratified cross-validation on the training split, ranked by Macro-F1</dd></div><div><dt>Evaluation</dt><dd>Single held-out test split (20%; random_state=2026)</dd></div></dl><p class="ra-footnote">The training pipeline fits TF-IDF inside each cross-validation fold to prevent feature leakage.</p></section>
-      <section class="ra-panel"><div class="ra-index">02 / PERFORMANCE</div><h3>Known limitations</h3><p>Held-out accuracy of <strong>{{pct(metrics.test_metrics.accuracy)}}</strong> means approximately {{pct(1-metrics.test_metrics.accuracy)}} of test predictions were incorrect. This is not sufficient evidence for fully automated routing.</p><p>TF-IDF primarily captures word patterns rather than the full meaning of a request. Similar tickets may have different historical labels; unfamiliar vocabulary and changing products may reduce reliability.</p><p>Linear SVM decision scores are <strong>not calibrated probabilities</strong>. The application deliberately does not present confidence percentages.</p><div class="ra-note">Performance figures describe this dataset and split, not a guaranteed result on future tickets.</div></section>
-      <section class="ra-panel"><div class="ra-index">03 / QUEUE-LEVEL EQUITY</div><h3>Uneven recall across queues</h3><p>Macro-F1 weights each queue equally, helping reveal weaknesses that overall accuracy can obscure. Different recall rates indicate unequal routing performance across queue categories; they do not, by themselves, establish demographic fairness.</p><div class="ra-bars"><div v-for="r in rows" :key="r.label" class="ra-bar-row"><div class="ra-bar-heading"><span>{{r.label}}</span><strong>{{pct(r.recall)}}</strong></div><div class="ra-track"><div :style="{width:(r.recall*100)+'%'}"></div></div></div></div><p v-if="weakest && strongest" class="ra-footnote">Lowest recall: {{weakest.label}} ({{pct(weakest.recall)}}). Highest recall: {{strongest.label}} ({{pct(strongest.recall)}}). Review errors before changing routing policy.</p></section>
-      <section class="ra-panel"><div class="ra-index">04 / PRIVACY & SECURITY</div><h3>Ticket text may be sensitive</h3><p>Real support tickets can contain names, credentials, account details, or health and security information. Do not paste real secrets or regulated data into this research demonstration.</p><ul><li>Use synthetic or appropriately de-identified examples for demos.</li><li>Restrict access to submitted text and feedback; establish retention and deletion policies before deployment.</li><li>Do not assume a local development server is a production-grade security boundary.</li><li>Review server logging and feedback storage before handling actual customer data.</li></ul><p class="ra-footnote">These are recommended safeguards, not a claim that the current app implements them.</p></section>
-      <section class="ra-panel"><div class="ra-index">05 / HUMAN OVERSIGHT</div><h3>Suggested review workflow</h3><ol><li>Read the original ticket and the suggested queue.</li><li>Check the context, urgency, and potential security impact.</li><li>Accept or override the suggestion using established routing rules.</li><li>Record corrections for later auditing; do not silently retrain on individual feedback.</li></ol><div class="ra-note">Escalate suspected security incidents and high-impact requests using human-defined procedures, regardless of the model label.</div></section>
-      <section class="ra-panel"><div class="ra-index">06 / FUTURE WORK</div><h3>Research extensions</h3><ul><li>Audit conflicting and ambiguous historical labels.</li><li>Experiment with class weighting and targeted data collection for lower-recall queues.</li><li>Compare contextual embeddings or transformer classifiers against the TF-IDF baseline.</li><li>Evaluate on a separately collected, more recent dataset and monitor drift.</li><li>Measure subgroup fairness only if appropriate, consented, privacy-preserving data and a clear evaluation protocol are available.</li></ul><p class="ra-footnote">Any new model selection or tuning must use training/validation data—not the held-out test set.</p></section>
+    <div class="ra-banner">
+      <div class="ra-kicker">// DEPLOYMENT ASSESSMENT</div>
+      <h2>Decision support, not autonomous routing</h2>
+      <p>
+        HelpDesk proposes a support queue for human review. A predicted label is
+        not proof that a ticket belongs in that queue, and the classifier should
+        not automatically dispatch sensitive or urgent tickets.
+      </p>
+      <div class="ra-banner-meta">
+        <span>MODEL: {{ metrics.selected_model }}</span
+        ><span>HELD-OUT ACCURACY: {{ pct(metrics.test_metrics.accuracy) }}</span
+        ><span>MACRO-F1: {{ metrics.test_metrics.macro_f1.toFixed(3) }}</span>
+      </div>
     </div>
-    <div class="ra-footer">RESEARCH DEMONSTRATION // NOT VALIDATED FOR UNSUPERVISED PRODUCTION ROUTING</div>
+    <div class="ra-grid">
+      <section class="ra-panel">
+        <div class="ra-index">01 / MODEL CARD</div>
+        <h3>Scope and methodology</h3>
+        <dl>
+          <div>
+            <dt>Dataset</dt>
+            <dd>{{ metrics.dataset }}</dd>
+          </div>
+          <div>
+            <dt>Cleaned examples</dt>
+            <dd>{{ metrics.dataset_rows.toLocaleString() }}</dd>
+          </div>
+          <div>
+            <dt>Training / test</dt>
+            <dd>
+              {{ metrics.train_rows.toLocaleString() }} /
+              {{ metrics.test_rows.toLocaleString() }}
+            </dd>
+          </div>
+          <div>
+            <dt>Input</dt>
+            <dd>Combined ticket subject and body</dd>
+          </div>
+          <div>
+            <dt>Output</dt>
+            <dd>One of four support queues</dd>
+          </div>
+          <div>
+            <dt>Text features</dt>
+            <dd>
+              TF-IDF; English stop words; 1–2 grams; up to 10,000 features;
+              min_df=2
+            </dd>
+          </div>
+          <div>
+            <dt>Selection</dt>
+            <dd>
+              Five-fold stratified cross-validation on the training split,
+              ranked by Macro-F1
+            </dd>
+          </div>
+          <div>
+            <dt>Evaluation</dt>
+            <dd>Single held-out test split (20%; random_state=2026)</dd>
+          </div>
+        </dl>
+        <p class="ra-footnote">
+          The training pipeline fits TF-IDF inside each cross-validation fold to
+          prevent feature leakage.
+        </p>
+      </section>
+      <section class="ra-panel">
+        <div class="ra-index">02 / PERFORMANCE</div>
+        <h3>Known limitations</h3>
+        <p>
+          Held-out accuracy of
+          <strong>{{ pct(metrics.test_metrics.accuracy) }}</strong> means
+          approximately {{ pct(1 - metrics.test_metrics.accuracy) }} of test
+          predictions were incorrect. This is not sufficient evidence for fully
+          automated routing.
+        </p>
+        <p>
+          TF-IDF primarily captures word patterns rather than the full meaning
+          of a request. Similar tickets may have different historical labels;
+          unfamiliar vocabulary and changing products may reduce reliability.
+        </p>
+        <p>
+          Linear SVM decision scores are
+          <strong>not calibrated probabilities</strong>. The application
+          deliberately does not present confidence percentages.
+        </p>
+        <div class="ra-note">
+          Performance figures describe this dataset and split, not a guaranteed
+          result on future tickets.
+        </div>
+      </section>
+      <section class="ra-panel">
+        <div class="ra-index">03 / QUEUE-LEVEL EQUITY</div>
+        <h3>Uneven recall across queues</h3>
+        <p>
+          Macro-F1 weights each queue equally, helping reveal weaknesses that
+          overall accuracy can obscure. Different recall rates indicate unequal
+          routing performance across queue categories; they do not, by
+          themselves, establish demographic fairness.
+        </p>
+        <div class="ra-bars">
+          <div v-for="r in rows" :key="r.label" class="ra-bar-row">
+            <div class="ra-bar-heading">
+              <span>{{ r.label }}</span
+              ><strong>{{ pct(r.recall) }}</strong>
+            </div>
+            <div class="ra-track">
+              <div :style="{ width: r.recall * 100 + '%' }"></div>
+            </div>
+          </div>
+        </div>
+        <p v-if="weakest && strongest" class="ra-footnote">
+          Lowest recall: {{ weakest.label }} ({{ pct(weakest.recall) }}).
+          Highest recall: {{ strongest.label }} ({{ pct(strongest.recall) }}).
+          Review errors before changing routing policy.
+        </p>
+      </section>
+      <section class="ra-panel">
+        <div class="ra-index">04 / PRIVACY & SECURITY</div>
+        <h3>Ticket text may be sensitive</h3>
+        <p>
+          Real support tickets can contain names, credentials, account details,
+          or health and security information. Do not paste real secrets or
+          regulated data into this research demonstration.
+        </p>
+        <ul>
+          <li>
+            Use synthetic or appropriately de-identified examples for demos.
+          </li>
+          <li>
+            Restrict access to submitted text and feedback; establish retention
+            and deletion policies before deployment.
+          </li>
+          <li>
+            Do not assume a local development server is a production-grade
+            security boundary.
+          </li>
+          <li>
+            Review server logging and feedback storage before handling actual
+            customer data.
+          </li>
+        </ul>
+        <p class="ra-footnote">
+          These are recommended safeguards, not a claim that the current app
+          implements them.
+        </p>
+      </section>
+      <section class="ra-panel">
+        <div class="ra-index">05 / HUMAN OVERSIGHT</div>
+        <h3>Suggested review workflow</h3>
+        <ol>
+          <li>Read the original ticket and the suggested queue.</li>
+          <li>Check the context, urgency, and potential security impact.</li>
+          <li>
+            Accept or override the suggestion using established routing rules.
+          </li>
+          <li>
+            Record corrections for later auditing; do not silently retrain on
+            individual feedback.
+          </li>
+        </ol>
+        <div class="ra-note">
+          Escalate suspected security incidents and high-impact requests using
+          human-defined procedures, regardless of the model label.
+        </div>
+      </section>
+      <section class="ra-panel">
+        <div class="ra-index">06 / FUTURE WORK</div>
+        <h3>Research extensions</h3>
+        <ul>
+          <li>Audit conflicting and ambiguous historical labels.</li>
+          <li>
+            Experiment with class weighting and targeted data collection for
+            lower-recall queues.
+          </li>
+          <li>
+            Compare contextual embeddings or transformer classifiers against the
+            TF-IDF baseline.
+          </li>
+          <li>
+            Evaluate on a separately collected, more recent dataset and monitor
+            drift.
+          </li>
+          <li>
+            Measure subgroup fairness only if appropriate, consented,
+            privacy-preserving data and a clear evaluation protocol are
+            available.
+          </li>
+        </ul>
+        <p class="ra-footnote">
+          Any new model selection or tuning must use training/validation
+          data—not the held-out test set.
+        </p>
+      </section>
+    </div>
+    <div class="ra-footer">
+      RESEARCH DEMONSTRATION // NOT VALIDATED FOR UNSUPERVISED PRODUCTION
+      ROUTING
+    </div>
   </div>
 </template>
 <style scoped>
-.responsible-ai{display:flex;flex-direction:column;gap:20px;color:#c6d8cf}.ra-banner,.ra-panel{background:#101d18;border:1px solid #284337;border-radius:12px;padding:24px}.ra-banner{border-color:#587b35;background:linear-gradient(115deg,#172b1c,#101d18 72%)}.ra-kicker,.ra-index{color:#a4ff39;font-size:11px;font-weight:800;letter-spacing:1.5px}.ra-banner h2{font-size:25px;color:#f0fff2;margin:12px 0}.ra-banner p,.ra-panel p,.ra-panel li{line-height:1.65;font-size:14px}.ra-banner-meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.ra-banner-meta span{font-size:11px;border:1px solid #42613c;border-radius:5px;padding:8px 10px;color:#b7dca8}.ra-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.ra-panel h3{font-size:19px;color:#effff4;margin:12px 0 14px}.ra-panel strong{color:#e7ffcf}.ra-panel dl{margin:0}.ra-panel dl>div{display:flex;justify-content:space-between;gap:15px;padding:10px 0;border-bottom:1px solid #273c31;font-size:13px}.ra-panel dt{color:#87a99a;flex:0 0 35%}.ra-panel dd{margin:0;text-align:right;overflow-wrap:anywhere}.ra-panel ul,.ra-panel ol{padding-left:21px}.ra-panel li{margin:8px 0}.ra-note{border-left:3px solid #a4ff39;padding:12px 14px;background:#1c3021;color:#cde9bd;font-size:13px;line-height:1.5;margin-top:16px}.ra-footnote{font-size:12px!important;color:#8da99b}.ra-bars{margin:22px 0}.ra-bar-row{margin-bottom:14px}.ra-bar-heading{display:flex;justify-content:space-between;gap:10px;font-size:13px;margin-bottom:7px}.ra-track{height:9px;background:#294037;border-radius:20px;overflow:hidden}.ra-track>div{height:100%;background:#a4ff39;border-radius:20px}.ra-footer{text-align:center;font-size:11px;letter-spacing:1px;color:#88a294;padding:10px}@media(max-width:850px){.ra-grid{grid-template-columns:1fr}.ra-banner,.ra-panel{padding:18px}}
+.responsible-ai {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  color: #c6d8cf;
+}
+.ra-banner,
+.ra-panel {
+  background: #101d18;
+  border: 1px solid #284337;
+  border-radius: 12px;
+  padding: 24px;
+}
+.ra-banner {
+  border-color: #587b35;
+  background: linear-gradient(115deg, #172b1c, #101d18 72%);
+}
+.ra-kicker,
+.ra-index {
+  color: #a4ff39;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+.ra-banner h2 {
+  font-size: 25px;
+  color: #f0fff2;
+  margin: 12px 0;
+}
+.ra-banner p,
+.ra-panel p,
+.ra-panel li {
+  line-height: 1.65;
+  font-size: 14px;
+}
+.ra-banner-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+.ra-banner-meta span {
+  font-size: 11px;
+  border: 1px solid #42613c;
+  border-radius: 5px;
+  padding: 8px 10px;
+  color: #b7dca8;
+}
+.ra-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.ra-panel h3 {
+  font-size: 19px;
+  color: #effff4;
+  margin: 12px 0 14px;
+}
+.ra-panel strong {
+  color: #e7ffcf;
+}
+.ra-panel dl {
+  margin: 0;
+}
+.ra-panel dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 10px 0;
+  border-bottom: 1px solid #273c31;
+  font-size: 13px;
+}
+.ra-panel dt {
+  color: #87a99a;
+  flex: 0 0 35%;
+}
+.ra-panel dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.ra-panel ul,
+.ra-panel ol {
+  padding-left: 21px;
+}
+.ra-panel li {
+  margin: 8px 0;
+}
+.ra-note {
+  border-left: 3px solid #a4ff39;
+  padding: 12px 14px;
+  background: #1c3021;
+  color: #cde9bd;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 16px;
+}
+.ra-footnote {
+  font-size: 12px !important;
+  color: #8da99b;
+}
+.ra-bars {
+  margin: 22px 0;
+}
+.ra-bar-row {
+  margin-bottom: 14px;
+}
+.ra-bar-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  margin-bottom: 7px;
+}
+.ra-track {
+  height: 9px;
+  background: #294037;
+  border-radius: 20px;
+  overflow: hidden;
+}
+.ra-track > div {
+  height: 100%;
+  background: #a4ff39;
+  border-radius: 20px;
+}
+.ra-footer {
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #88a294;
+  padding: 10px;
+}
+@media (max-width: 850px) {
+  .ra-grid {
+    grid-template-columns: 1fr;
+  }
+  .ra-banner,
+  .ra-panel {
+    padding: 18px;
+  }
+}
 </style>
