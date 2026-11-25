@@ -2,7 +2,6 @@
 from unittest.mock import patch
 
 from django.test import TestCase
-
 from .models import Feedback
 
 
@@ -15,7 +14,7 @@ class ApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["status"], "online")
 
-    @patch("api.views.predict")
+    @patch("backend.api.views.predict")
     def test_classification(self, mock_predict):
         mock_predict.return_value = {
             "queue": "IT Support",
@@ -69,7 +68,7 @@ class ApiTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
 
-    @patch("api.views.predict")
+    @patch("backend.api.views.predict")
     def test_classification_model_unavailable(self, mock_predict):
         mock_predict.side_effect = FileNotFoundError(
             "Model artifact not found"
@@ -83,7 +82,7 @@ class ApiTests(TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertIn("error", response.json())
 
-    @patch("api.views.get_metrics")
+    @patch("backend.api.views.get_metrics")
     def test_metrics(self, mock_get_metrics):
         mock_get_metrics.return_value = {
             "selected_model": "Linear SVM",
@@ -102,7 +101,7 @@ class ApiTests(TestCase):
         )
         self.assertIn("test_metrics", response.json())
 
-    @patch("api.views.get_metrics")
+    @patch("backend.api.views.get_metrics")
     def test_metrics_unavailable(self, mock_get_metrics):
         mock_get_metrics.side_effect = FileNotFoundError(
             "Metrics artifact not found"
@@ -113,7 +112,7 @@ class ApiTests(TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertIn("error", response.json())
 
-    @patch("api.views.get_metrics")
+    @patch("backend.api.views.get_metrics")
     def test_models(self, mock_get_metrics):
         mock_get_metrics.return_value = {
             "selected_model": "Linear SVM",
@@ -134,7 +133,7 @@ class ApiTests(TestCase):
         )
         self.assertEqual(len(response.json()["cv_results"]), 1)
 
-    @patch("api.views.get_metrics")
+    @patch("backend.api.views.get_metrics")
     def test_models_unavailable(self, mock_get_metrics):
         mock_get_metrics.side_effect = FileNotFoundError(
             "Metrics artifact not found"

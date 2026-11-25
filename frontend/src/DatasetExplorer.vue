@@ -3,7 +3,9 @@ import { computed, ref } from 'vue';
 import type { DatasetAudit } from './api';
 
 const props = defineProps<{ audit: DatasetAudit; labels: string[] }>();
+
 const selectedQueue = ref('All queues');
+
 const stages = computed(() => {
   const a = props.audit;
   return [
@@ -38,6 +40,7 @@ const stages = computed(() => {
     },
   ];
 });
+
 const queues = computed(() =>
   props.labels.map((label) => ({
     label,

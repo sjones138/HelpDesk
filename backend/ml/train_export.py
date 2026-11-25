@@ -1,9 +1,6 @@
-# pyright: reportMissingImports=false
-"""Reproduce the notebook's data cleaning, model selection and held-out evaluation."""
 import json
 from pathlib import Path
 import joblib
-import pandas as pd
 from datasets import load_dataset
 from sklearn.model_selection import (
     train_test_split,
@@ -18,10 +15,12 @@ from sklearn.naive_bayes import MultinomialNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score,precision_score,recall_score,f1_score,classification_report,confusion_matrix
+
 LABELS=['Customer Service','Technical Support','IT Support','Product Support']
 OUT=Path(__file__).resolve().parent.parent/'artifacts'
+
 def make_pipeline(classifier):
- return Pipeline([('tfidf',TfidfVectorizer(lowercase=True,stop_words='english',max_features=10000,ngram_range=(1,2),min_df=2)),('classifier',classifier)])
+    return Pipeline([('tfidf', TfidfVectorizer(lowercase=True, stop_words='english', max_features=10000, ngram_range=(1, 2), min_df=2)), ('classifier', classifier)])
 
 def tune_svm(X_train, y_train, cv):
  """
